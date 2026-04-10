@@ -9,52 +9,64 @@ from pyrogram import Client, filters, errors
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from motor.motor_asyncio import AsyncIOMotorClient
 
-# ==========================================================
-# ১. লগিং এবং কনফিগারেশন সেটআপ
-# ==========================================================
+# ==========================================
+# ১. প্রফেশনাল লগিং সেটআপ
+# ==========================================
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# এনভায়রনমেন্ট ভেরিয়েবল থেকে ডেটা নেওয়া
+# ==========================================
+# ২. কনফিগারেশন (Environment Variables)
+# ==========================================
 API_ID = int(os.environ.get("API_ID", "29462738"))
 API_HASH = os.environ.get("API_HASH", "297f51aaab99720a09e80273628c3c24")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8673154872:AAHqVYxzUeJ2iAXdV8AGrDTPG0pDb2_UxAA")
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb+srv://larib82632:larib82632@cluster0.rj7ed.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 
-# ==========================================================
-# ২. ডাটাবেস এবং ওয়েব সার্ভার (Koyeb এর জন্য)
-# ==========================================================
-try:
-    db_client = AsyncIOMotorClient(MONGO_URL)
-    db = db_client["Smart_AutoCaption_DB"]
-    cap_collection = db["channel_settings"]
-    logger.info("✅ MongoDB Connected Successfully!")
-except Exception as e:
-    logger.error(f"❌ MongoDB Connection Error: {e}")
+# ==========================================
+# ৩. ডাটাবেস ও ওয়েব সার্ভার কানেকশন
+# ==========================================
+db_client = AsyncIOMotorClient(MONGO_URL)
+db = db_client["Final_AutoCaption_Pro"]
+cap_collection = db["channel_configs"]
 
-# Koyeb Web Service সচল রাখার জন্য Flask
+# Koyeb Web Service সচল রাখার জন্য Flask Server
 web_app = Flask(__name__)
 
 @web_app.route('/')
 def home():
-    return "Bot is Running and Healthy!"
+    return "🔥 Bot is Online and Healthy! Powered by Flask."
 
 def run_web():
-    web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    # Koyeb এর ডিফল্ট পোর্ট ৮০৮০ ব্যবহার করবে
+    port = int(os.environ.get("PORT", 8080))
+    web_app.run(host="0.0.0.0", port=port)
 
-# ==========================================================
-# ৩. স্মার্ট ইনফরমেশন এক্সট্রাকশন (The "Brain")
-# ==========================================================
+# ==========================================
+# ৪. স্মার্ট এক্সট্রাকশন ইউটিলিটি (The Brain)
+# ==========================================
 
-def get_clean_name(file_name):
-    """মুভির নাম থেকে জঞ্জাল পরিষ্কার করার স্মার্ট লজিক"""
-    # এক্সটেনশন বাদ দেওয়া
-    name = os.path.splitext(file_name)[0]
+def get_smart_quality(name):
+    """ফাইলের নাম থেকে ভিডিও কোয়ালিটি খুঁজে বের করা"""
+    name = name.lower()
+    if "2160" in name or "4k" in name: return "4K UHD"
+    if "1080" in name: return "1080p Full HD"
+    if "720" in name: return "720p HD"
+    if "480" in name: return "480p SD"
+    if "cam" in name: return "CAMRip"
+    if "hdtv" in name: return "HDTV"
+    if "bluray" in name: return "BluRay"
+    return "WEB-DL"
+
+def get_clean_filename(file_name):
+    """মুভির নাম থেকে জঞ্জাল শব্দ এবং সিম্বল ক্লিন করা"""
+    # এক্সটেনশন আলাদা করা
+    name, ext = os.path.splitext(file_name)
     
-    # অপ্রয়োজনীয় ডট, আন্ডারস্কোর সরিয়ে স্পেস দেওয়া
+    # ডট, আন্ডারস্কোর এবং ড্যাশ সরিয়ে স্পেস দেওয়া
     name = re.sub(r'[\.\_\-]', ' ', name)
     
     # যদি নামে সাল থাকে (যেমন 2024, 2026), তবে সালের পরের অংশটুকু কেটে ফেলা
@@ -67,7 +79,7 @@ def get_clean_name(file_name):
     junk_words = [
         '720p', '1080p', '480p', '2160p', '4k', 'hevc', 'h264', 'h265', 'x264', 'x265',
         '10bit', 'web-dl', 'webdl', 'bluray', 'hdrip', 'brrip', 'nf', 'web', 'dl', 'aac',
-        'the punisher', 'esub', 'sub', 'dual', 'multi'
+        'the punisher', 'esub', 'sub', 'dual', 'multi', 'hdtv', 'proper', 'repack'
     ]
     
     for word in junk_words:
@@ -77,25 +89,26 @@ def get_clean_name(file_name):
     clean_name = ' '.join(name.split())
     return clean_name if clean_name else file_name
 
-def get_smart_audio(file_name):
-    """ফাইলের নাম না থাকলেও স্মার্টলি অডিও ডিটেক্ট করা"""
+def get_advanced_audio(file_name):
+    """ফাইলের নাম থেকে অত্যন্ত স্মার্টলি অডিও ডিটেক্ট করা"""
     name = file_name.lower()
     audios = []
     
-    # সরাসরি নাম চেক
+    # সরাসরি ল্যাঙ্গুয়েজ চেক
     if any(x in name for x in ['hindi', 'hin', 'hnd']): audios.append("Hindi")
     if any(x in name for x in ['english', 'eng', 'en']): audios.append("English")
     if any(x in name for x in ['bangla', 'ben', 'bd']): audios.append("Bangla")
     if any(x in name for x in ['tamil', 'tam']): audios.append("Tamil")
     if any(x in name for x in ['telugu', 'tel']): audios.append("Telugu")
+    if any(x in name for x in ['kannada', 'kan']): audios.append("Kannada")
+    if any(x in name for x in ['malayalam', 'mal']): audios.append("Malayalam")
     
-    # স্মার্ট ডিটেকশন (যদি নাম না থাকে কিন্তু সোর্স থাকে)
+    # যদি কোনো ল্যাঙ্গুয়েজ না পায় কিন্তু স্মার্ট ট্যাগ থাকে
     if not audios:
-        if "nf" in name or "web" in name:
-            return "Hindi | English (Smart Detect)"
-        if "dual" in name:
-            return "Dual Audio (Hindi-English)"
-        return "Hindi (Default)"
+        if "dual" in name: return "Dual Audio (Hindi-English)"
+        if "multi" in name: return "Multi Audio"
+        if "nf" in name or "web" in name: return "Hindi (Smart Detect)"
+        return "Hindi" # ডিফল্ট মুভি ল্যাঙ্গুয়েজ
     
     return " | ".join(audios)
 
@@ -106,123 +119,105 @@ def get_readable_size(size):
             return f"{size:.2f} {unit}"
         size /= 1024
 
-# ==========================================================
-# ৪. টেলিগ্রাম বট হ্যান্ডলারসমূহ
-# ==========================================================
+# ==========================================
+# ৫. টেলিগ্রাম বট ফাংশনালিটি
+# ==========================================
 app = Client("smart_caption_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 @app.on_message(filters.command("start") & filters.private)
-async def start_cmd(client, message):
-    text = (
-        f"👋 **স্বাগতম {message.from_user.mention}!**\n\n"
-        "আমি একটি **অ্যাডভান্সড অটো-ক্যাপশন বট**। মুভি চ্যানেলের জন্য আমাকে ডিজাইন করা হয়েছে।\n\n"
-        "✨ **আমার বৈশিষ্ট্য:**\n"
-        "• মাল্টি-চ্যানেল সাপোর্ট (প্রতি চ্যানেলে আলাদা ক্যাপশন)।\n"
-        "• স্মার্ট মুভি নাম ক্লিনার।\n"
-        "• অটো অডিও ল্যাঙ্গুয়েজ ডিটেকশন।\n"
-        "• সম্পূর্ণ কাস্টম ক্যাপশন ফরম্যাট।\n\n"
-        "🚀 **কিভাবে সেটআপ করবেন?**\n"
-        "১. আপনার চ্যানেলে আমাকে অ্যাডমিন করুন।\n"
-        "২. বটের ইনবক্সে লিখুন: `/set_caption [Channel ID] [Caption]`"
+async def start_handler(client, message):
+    # প্রফেশনাল এক্সাম্পল টেক্সট
+    example = (
+        "🎬 **Movie:** Tu Yaa Main 2026\n"
+        "🌟 **Quality:** 720p HD\n"
+        "🔊 **Audio:** Hindi | English\n"
+        "📁 **Size:** 1.25 GB\n\n"
+        "✅ **Join: @YourChannel**"
     )
-    buttons = [[
-        InlineKeyboardButton("📢 Update Channel", url="https://t.me/YourChannel"),
-        InlineKeyboardButton("🛠 Help", callback_data="help_data")
-    ]]
-    await message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+    
+    start_text = (
+        f"👋 **হ্যালো {message.from_user.mention}!**\n\n"
+        "আমি একটি অ্যাডভান্সড **মাল্টি-চ্যানেল অটো ক্যাপশন বট**।\n\n"
+        "🚀 **কিভাবে ব্যবহার করবেন?**\n"
+        "১. আপনার চ্যানেলে আমাকে অ্যাডমিন করুন (Edit Message পারমিশন সহ)।\n"
+        "২. বটের ইনবক্সে নিচের কমান্ডটি ব্যবহার করে ক্যাপশন সেট করুন:\n\n"
+        "`/set_caption [Channel_ID] [Your_Caption]`\n\n"
+        "📑 **ক্যাপশনে ব্যবহারযোগ্য ট্যাগসমূহ:**\n"
+        "• `{filename}` - ক্লিন মুভি নাম\n"
+        "• `{quality}` - ভিডিও কোয়ালিটি\n"
+        "• `{audio}` - অডিও ল্যাঙ্গুয়েজ\n"
+        "• `{size}` - ফাইলের সাইজ\n\n"
+        "💡 **নিচের উদাহরণটি দেখে আইডি পরিবর্তন করে ব্যবহার করুন:**"
+    )
+    
+    await message.reply_text(start_text)
+    await asyncio.sleep(1)
+    await message.reply_text(f"**উদাহরণ ফরম্যাট:**\n\n`/set_caption -100xxxxxxxx {example}`")
+    await asyncio.sleep(1)
+    await message.reply_text(f"**আপনার চ্যানেলে এটি নিচের মতো দেখাবে:**\n\n{example}")
 
 @app.on_message(filters.command("set_caption") & filters.private)
-async def set_caption_cmd(client, message):
+async def set_caption(client, message):
     if len(message.command) < 3:
-        usage = (
-            "❌ **ভুল ফরম্যাট!**\n\n"
-            "সঠিক নিয়ম: `/set_caption -100xxxxxxxx [ক্যাপশন]`\n\n"
-            "**ট্যাগসমূহ:**\n"
-            "• `{filename}` - ক্লিন করা মুভির নাম\n"
-            "• `{size}` - ফাইলের সাইজ\n"
-            "• `{audio}` - অডিও ল্যাঙ্গুয়েজ\n\n"
-            "**উদাহরণ:**\n"
-            "`/set_caption -1001234 🎬 মুভি: {filename} \n🔊 অডিও: {audio} \n📁 সাইজ: {size}`"
-        )
-        return await message.reply_text(usage)
+        return await message.reply_text("❌ **ভুল কমান্ড!**\nব্যবহার: `/set_caption [Channel ID] [Caption]`")
     
     try:
         channel_id = int(message.command[1])
-        new_caption = message.text.split(None, 2)[2]
+        caption_text = message.text.split(None, 2)[2]
         
         await cap_collection.update_one(
             {"channel_id": channel_id},
-            {"$set": {"caption": new_caption}},
+            {"$set": {"caption_text": caption_text}},
             upsert=True
         )
-        await message.reply_text(f"✅ **সফল!**\nচ্যানেল `{channel_id}` এর জন্য ক্যাপশন আপডেট হয়েছে।")
+        await message.reply_text(f"✅ **অভিনন্দন!**\nচ্যানেল `{channel_id}` এর জন্য ক্যাপশন সেট করা হয়েছে। এখন থেকে ওই চ্যানেলে পোস্ট করলে অটোমেটিক ক্যাপশন আপডেট হবে।")
+    except ValueError:
+        await message.reply_text("❌ চ্যানেল আইডি অবশ্যই সংখ্যা হতে হবে (উদা: -100xxx)")
     except Exception as e:
         await message.reply_text(f"⚠️ এরর: {e}")
 
-@app.on_message(filters.command("view_caption") & filters.private)
-async def view_caption_cmd(client, message):
-    if len(message.command) < 2:
-        return await message.reply_text("ব্যবহার: `/view_caption [Channel ID]`")
-    
-    channel_id = int(message.command[1])
-    data = await cap_collection.find_one({"channel_id": channel_id})
-    
-    if data:
-        await message.reply_text(f"📌 **আপনার বর্তমান ক্যাপশন:**\n\n`{data['caption']}`")
-    else:
-        await message.reply_text("❌ এই চ্যানেলের জন্য কোনো ক্যাপশন সেট করা নেই।")
-
-# ==========================================================
-# ৫. মূল কাজ: অটো ক্যাপশন এডিটিং (চ্যানেল পার্ট)
-# ==========================================================
-
 @app.on_message(filters.channel & (filters.video | filters.document))
-async def auto_caption_handler(client, message):
+async def auto_caption(client, message):
+    chat_id = message.chat.id
+    file = message.video or message.document
+    if not file: return
+
+    # ডাটাবেস থেকে ক্যাপশন চেক
+    config = await cap_collection.find_one({"channel_id": chat_id})
+    if config:
+        template = config["caption_text"]
+    else:
+        # ডিফল্ট ক্যাপশন যদি সেভ করা না থাকে
+        template = "🎬 **Name:** {filename}\n🌟 **Quality:** {quality}\n🔊 **Audio:** {audio}\n📁 **Size:** {size}"
+
+    # স্মার্ট ডেটা প্রসেসিং
+    raw_name = file.file_name if file.file_name else "Unknown"
+    
     try:
-        chat_id = message.chat.id
-        file = message.video or message.document
-        if not file:
-            return
-
-        # ডাটাবেস থেকে ওই চ্যানেলের কাস্টম ক্যাপশন আনা
-        channel_data = await cap_collection.find_one({"channel_id": chat_id})
-        if not channel_data:
-            # যদি কোনো ক্যাপশন সেট না থাকে, তবে ডিফল্ট
-            template = "🎬 **Name:** {filename}\n🔊 **Audio:** {audio}\n📁 **Size:** {size}"
-        else:
-            template = channel_data["caption"]
-
-        # স্মার্ট তথ্য প্রসেসিং
-        raw_name = file.file_name if file.file_name else "Unknown_File"
-        clean_name = get_clean_name(raw_name)
-        audio_info = get_smart_audio(raw_name)
-        file_size = get_readable_size(file.file_size)
-
-        # প্লেসহোল্ডার পূরণ
         final_caption = template.format(
-            filename=clean_name,
-            size=file_size,
-            audio=audio_info
+            filename=get_clean_filename(raw_name),
+            quality=get_smart_quality(raw_name),
+            audio=get_advanced_audio(raw_name),
+            size=get_readable_size(file.file_size)
         )
-
-        # ক্যাপশন এডিট করা
+        
+        # ক্যাপশন আপডেট
         await message.edit_caption(caption=final_caption)
-        logger.info(f"✅ Success: Caption updated in {chat_id}")
-
+        logger.info(f"Updated caption in channel: {chat_id}")
+        
     except errors.FloodWait as e:
-        logger.warning(f"⚠️ FloodWait: Waiting for {e.value} seconds")
         await asyncio.sleep(e.value)
-        await auto_caption_handler(client, message)
+        await auto_caption(client, message)
     except Exception as e:
-        logger.error(f"❌ Error in channel {chat_id}: {e}")
+        logger.error(f"Error in {chat_id}: {e}")
 
-# ==========================================================
-# ৬. বট রান করা
-# ==========================================================
+# ==========================================
+# ৬. বট এক্সিকিউশন
+# ==========================================
 
 if __name__ == "__main__":
-    # ওয়েব সার্ভার আলাদা থ্রেডে চালানো (Koyeb এর জন্য)
+    # Flask সার্ভার আলাদা থ্রেডে রান করা (Koyeb এর জন্য)
     Thread(target=run_web).start()
     
-    logger.info("🚀 Bot is Starting...")
+    logger.info("🚀 Professional Auto-Caption Bot is Starting...")
     app.run()
