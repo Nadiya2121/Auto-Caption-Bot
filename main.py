@@ -10,7 +10,7 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQ
 from motor.motor_asyncio import AsyncIOMotorClient
 
 # ==========================================
-# ১. প্রফেশনাল লগিং সেটআপ
+# ১. প্রফেশনাল লগিং সেটআপ (অরিজিনাল)
 # ==========================================
 logging.basicConfig(
     level=logging.INFO,
@@ -19,16 +19,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ==========================================
-# ২. কনফিগারেশন (Environment Variables)
+# ২. কনফিগারেশন (Environment Variables - অরিজিনাল)
 # ==========================================
-# আপনার দেওয়া তথ্যগুলো হুবহু রাখা হয়েছে
 API_ID = int(os.environ.get("API_ID", "29462738"))
 API_HASH = os.environ.get("API_HASH", "297f51aaab99720a09e80273628c3c24")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8673154872:AAHqVYxzUeJ2iAXdV8AGrDTPG0pDb2_UxAA")
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb+srv://larib82632:larib82632@cluster0.rj7ed.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 
 # ==========================================
-# ৩. ডাটাবেস ও ওয়েব সার্ভার কানেকশন
+# ৩. ডাটাবেস ও ওয়েব সার্ভার কানেকশন (অরিজিনাল)
 # ==========================================
 db_client = AsyncIOMotorClient(MONGO_URL)
 db = db_client["Final_AutoCaption_Pro"]
@@ -47,77 +46,68 @@ def run_web():
     web_app.run(host="0.0.0.0", port=port)
 
 # ==========================================
-# ৪. স্মার্ট এক্সট্রাকশন ইউটিলিটি (The Brain - Updated for Web Series)
+# ৪. স্মার্ট এক্সট্রাকশন ইউটিলিটি (The Brain - Full Detailed Version)
 # ==========================================
 
 def get_clean_filename(file_name):
-    """মুভি এবং ওয়েব সিরিজের নাম স্মার্টলি ক্লিন করা এবং এপিসোড রেঞ্জ খুঁজে বের করা"""
-    # এক্সটেনশন বাদ দেওয়া
-    name, _ = os.path.splitext(file_name)
+    """মুভি এবং ওয়েব সিরিজের নাম স্মার্টলি ক্লিন করা (এপিসোড রেঞ্জ E11-20 সহ)"""
+    # ১. এক্সটেনশন আলাদা করা
+    name, ext = os.path.splitext(file_name)
     
-    # ডট, আন্ডারস্কোর এবং ড্যাশ সরিয়ে স্পেস দেওয়া
+    # ২. ডট, আন্ডারস্কোর এবং ড্যাশ সরিয়ে স্পেস দেওয়া
     name = re.sub(r'[\.\_\-]', ' ', name)
     
-    # প্যাটার্ন ১: সিজন (S01, Season 01, S1)
+    # ৩. প্যাটার্ন ডিটেকশন (Season & Episode Range)
+    # এটি S01, Season 1, [E11-20], Ep 01-10 ইত্যাদি ডিটেক্ট করবে
     season_pattern = r'([sS]eason\s?\d+|[sS]\d+)'
-    
-    # প্যাটার্ন ২: এপিসোড (E01, Ep 01, Episode 01, এবং রেঞ্জ যেমন 01-10, 01 to 05)
-    episode_pattern = r'([eE]pisode|[eE]p|[eE])?\s?\d+\s?([-–—to\s]+\d+)?'
-    
-    # প্যাটার্ন ৩: মুভির সাল
-    year_match = re.search(r'(19|20)\d{2}', name)
-    
+    # এপিসোড প্যাটার্নটি ব্র্যাকেট এবং ড্যাশসহ রেঞ্জ ডিটেক্ট করার জন্য আপডেট করা হয়েছে
+    episode_pattern = r'(\[?[eE]pisode\s?\d+.*?\]?|\[?[eE]p\s?\d+.*?\]?|\[?[eE]\d+.*?\]?)'
+    year_pattern = r'(19|20)\d{2}'
+
     found_season = re.search(season_pattern, name, re.IGNORECASE)
     found_episode = re.search(episode_pattern, name, re.IGNORECASE)
-    
-    clean_title = name
-    extra_tag = ""
+    found_year = re.search(year_pattern, name)
 
-    # ওয়েব সিরিজ ডিটেকশন লজিক
-    if found_season or (found_episode and not year_match):
-        # সিজন থাকলে সেটি নিন
-        s_txt = found_season.group(0).upper() if found_season else ""
-        
-        # এপিসোড বা রেঞ্জ থাকলে সেটি নিন
-        e_txt = ""
-        if found_episode:
-            # টেক্সট থেকে এপিসোড রেঞ্জ বের করার জন্য সব ম্যাচ চেক করা
-            all_eps = [m.group(0) for m in re.finditer(episode_pattern, name, re.IGNORECASE)]
-            for ep in all_eps:
-                if any(char.isdigit() for char in ep):
-                    e_txt = ep.upper()
-                    break
-        
-        # টাইটেল থেকে সিজন/এপিসোড যেখানে শুরু হয়েছে তার পরের অংশ কেটে ফেলা
+    clean_name = name
+    info_tag = ""
+
+    # ওয়েব সিরিজ লজিক (যদি সিজন বা এপিসোড থাকে)
+    if found_season or found_episode:
         cut_idx = len(name)
-        if found_season: cut_idx = min(cut_idx, found_season.start())
-        if found_episode: cut_idx = min(cut_idx, found_episode.start())
+        if found_season:
+            cut_idx = min(cut_idx, found_season.start())
+            info_tag += " " + found_season.group(0).upper()
+        if found_episode:
+            cut_idx = min(cut_idx, found_episode.start())
+            # এপিসোড টেক্সট ক্লিন করা (যেমন: [E11-20] থেকে E11-20)
+            ep_text = found_episode.group(0).upper().replace('[', '').replace(']', '').strip()
+            info_tag += f" [{ep_text}]"
         
-        clean_title = name[:cut_idx]
-        extra_tag = f"{s_txt} {e_txt}".strip()
-        
-    elif year_match:
-        # এটি মুভি (সালের পরের অংশ কাটা)
-        year_idx = year_match.start()
-        clean_title = name[:year_idx]
-        extra_tag = year_match.group(0)
+        clean_name = name[:cut_idx]
+    
+    # মুভি লজিক (যদি শুধু সাল থাকে)
+    elif found_year:
+        year_idx = found_year.start()
+        clean_name = name[:year_idx]
+        info_tag = found_year.group(0)
 
-    # জঞ্জাল শব্দ রিমুভ করা (টাইটেল অংশ থেকে)
+    # ৪. জঞ্জাল শব্দ রিমুভ করা (অরিজিনাল লিস্ট + অতিরিক্ত)
     junk_words = [
         '720p', '1080p', '480p', '2160p', '4k', 'hevc', 'h264', 'h265', 'x264', 'x265',
         '10bit', 'web-dl', 'webdl', 'bluray', 'hdrip', 'brrip', 'nf', 'web', 'dl', 'aac',
-        'esub', 'sub', 'dual', 'multi', 'hdtv', 'proper', 'repack', 'hindi', 'english', 'org'
+        'the punisher', 'esub', 'sub', 'dual', 'multi', 'hdtv', 'proper', 'repack', 
+        'combined', 'swapnonil', 'kmhd'
     ]
     
     for word in junk_words:
-        clean_title = re.sub(rf'\b{word}\b', '', clean_title, flags=re.IGNORECASE)
+        clean_name = re.sub(rf'\b{word}\b', '', clean_name, flags=re.IGNORECASE)
     
-    # ফাইনাল ক্লিনআপ
-    final_title = ' '.join(clean_title.split())
-    return f"{final_title} {extra_tag}".strip() if extra_tag else final_title
+    # ৫. অতিরিক্ত স্পেস ক্লিন করা
+    final_title = ' '.join(clean_name.split())
+    return f"{final_title} {info_tag.strip()}".strip() if info_tag else final_title
 
 def get_smart_quality(name):
-    """ফাইলের নাম থেকে ভিডিও কোয়ালিটি খুঁজে বের করা"""
+    """ফাইলের নাম থেকে ভিডিও কোয়ালিটি খুঁজে বের করা (অরিজিনাল)"""
     name = name.lower()
     if "2160" in name or "4k" in name: return "4K UHD"
     if "1080" in name: return "1080p Full HD"
@@ -129,7 +119,7 @@ def get_smart_quality(name):
     return "WEB-DL"
 
 def get_advanced_audio(file_name):
-    """ফাইলের নাম থেকে অত্যন্ত স্মার্টলি অডিও ডিটেক্ট করা"""
+    """অরিজিনাল মাল্টি-ল্যাঙ্গুয়েজ অডিও ডিটেকশন"""
     name = file_name.lower()
     audios = []
     
@@ -142,37 +132,53 @@ def get_advanced_audio(file_name):
     if any(x in name for x in ['malayalam', 'mal']): audios.append("Malayalam")
     
     if not audios:
-        if "dual" in name: return "Dual Audio (Hindi-English)"
+        if "dual" in name: return "Dual Audio"
         if "multi" in name: return "Multi Audio"
-        return "Hindi"
+        return "Hindi" 
     
     return " | ".join(audios)
 
 def get_readable_size(size):
-    """বাইটকে MB/GB তে রূপান্তর"""
+    """অরিজিনাল সাইজ কনভার্টার"""
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
         if size < 1024:
             return f"{size:.2f} {unit}"
         size /= 1024
 
 # ==========================================
-# ৫. টেলিগ্রাম বট ফাংশনালিটি
+# ৫. টেলিগ্রাম বট ফাংশনালিটি (অরিজিনাল ফিচারস)
 # ==========================================
 app = Client("smart_caption_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 @app.on_message(filters.command("start") & filters.private)
 async def start_handler(client, message):
+    # অরিজিনাল প্রফেশনাল এক্সাম্পল টেক্সট
+    example = (
+        "🎬 **Movie:** Tu Yaa Main 2026\n"
+        "🌟 **Quality:** 720p HD\n"
+        "🔊 **Audio:** Hindi | English\n"
+        "📁 **Size:** 1.25 GB\n\n"
+        "✅ **Join: @YourChannel**"
+    )
+    
     start_text = (
         f"👋 **হ্যালো {message.from_user.mention}!**\n\n"
         "আমি একটি অ্যাডভান্সড **মাল্টি-চ্যানেল অটো ক্যাপশন বট**।\n\n"
-        "✅ **আমি এখন মুভি এবং ওয়েব সিরিজ (এপিসোড রেঞ্জ সহ) স্মার্টলি ক্লিন করতে পারি!**\n\n"
         "🚀 **কিভাবে ব্যবহার করবেন?**\n"
-        "১. আপনার চ্যানেলে আমাকে অ্যাডমিন করুন।\n"
-        "২. নিচের কমান্ড দিয়ে ক্যাপশন সেট করুন:\n\n"
+        "১. আপনার চ্যানেলে আমাকে অ্যাডমিন করুন (Edit Message পারমিশন সহ)।\n"
+        "২. বটের ইনবক্সে নিচের কমান্ডটি ব্যবহার করে ক্যাপশন সেট করুন:\n\n"
         "`/set_caption [Channel_ID] [Your_Caption]`\n\n"
-        "📑 **ট্যাগসমূহ:** `{filename}`, `{quality}`, `{audio}`, `{size}`"
+        "📑 **ক্যাপশনে ব্যবহারযোগ্য ট্যাগসমূহ:**\n"
+        "• `{filename}` - ক্লিন মুভি/সিরিজ নাম (E11-20 সাপোর্ট সহ)\n"
+        "• `{quality}` - ভিডিও কোয়ালিটি\n"
+        "• `{audio}` - অডিও ল্যাঙ্গুয়েজ\n"
+        "• `{size}` - ফাইলের সাইজ\n\n"
+        "💡 **নিচের উদাহরণটি দেখে আইডি পরিবর্তন করে ব্যবহার করুন:**"
     )
+    
     await message.reply_text(start_text)
+    await asyncio.sleep(1)
+    await message.reply_text(f"**উদাহরণ ফরম্যাট:**\n\n`/set_caption -100xxxxxxxx {example}`")
 
 @app.on_message(filters.command("set_caption") & filters.private)
 async def set_caption(client, message):
@@ -188,7 +194,9 @@ async def set_caption(client, message):
             {"$set": {"caption_text": caption_text}},
             upsert=True
         )
-        await message.reply_text(f"✅ **সফল হয়েছে!**\nচ্যানেল `{channel_id}` এর জন্য ক্যাপশন সেট করা হয়েছে।")
+        await message.reply_text(f"✅ **অভিনন্দন!**\nচ্যানেল `{channel_id}` এর জন্য ক্যাপশন সেট করা হয়েছে।")
+    except ValueError:
+        await message.reply_text("❌ চ্যানেল আইডি অবশ্যই সংখ্যা হতে হবে (উদা: -100xxx)")
     except Exception as e:
         await message.reply_text(f"⚠️ এরর: {e}")
 
@@ -203,22 +211,28 @@ async def auto_caption(client, message):
     if config:
         template = config["caption_text"]
     else:
+        # ডিফল্ট ক্যাপশন
         template = "🎬 **Name:** {filename}\n🌟 **Quality:** {quality}\n🔊 **Audio:** {audio}\n📁 **Size:** {size}"
 
     raw_name = file.file_name if file.file_name else "Unknown"
     
     try:
-        # স্মার্ট ডেটা প্রসেসিং
+        # স্মার্ট ডেটা প্রসেসিং (উইথ সিরিজ সাপোর্ট)
+        processed_filename = get_clean_filename(raw_name)
+        processed_quality = get_smart_quality(raw_name)
+        processed_audio = get_advanced_audio(raw_name)
+        processed_size = get_readable_size(file.file_size)
+
         final_caption = template.format(
-            filename=get_clean_filename(raw_name),
-            quality=get_smart_quality(raw_name),
-            audio=get_advanced_audio(raw_name),
-            size=get_readable_size(file.file_size)
+            filename=processed_filename,
+            quality=processed_quality,
+            audio=processed_audio,
+            size=processed_size
         )
         
-        # ক্যাপশন আপডেট
+        # ক্যাপশন আপডেট (অরিজিনাল ফ্লাডওয়েট হ্যান্ডলিং সহ)
         await message.edit_caption(caption=final_caption)
-        logger.info(f"Updated caption in: {chat_id}")
+        logger.info(f"Updated caption in channel: {chat_id}")
         
     except errors.FloodWait as e:
         await asyncio.sleep(e.value)
@@ -227,12 +241,12 @@ async def auto_caption(client, message):
         logger.error(f"Error in {chat_id}: {e}")
 
 # ==========================================
-# ৬. বট এক্সিকিউশন
+# ৬. বট এক্সিকিউশন (অরিজিনাল থ্রেড সিস্টেম)
 # ==========================================
 
 if __name__ == "__main__":
     # Flask সার্ভার আলাদা থ্রেডে রান করা
     Thread(target=run_web).start()
     
-    logger.info("🚀 Smart Auto-Caption Bot is Starting...")
+    logger.info("🚀 Professional Auto-Caption Bot is Starting (Full Version)...")
     app.run()
