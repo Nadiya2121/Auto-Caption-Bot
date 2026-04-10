@@ -5,10 +5,10 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from motor.motor_asyncio import AsyncIOMotorClient
 
 # --- কনফিগারেশন ---
-API_ID = int(os.environ.get("API_ID", "12345"))
-API_HASH = os.environ.get("API_HASH", "your_hash")
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "your_token")
-MONGO_URL = os.environ.get("MONGO_URL", "your_mongodb_url")
+API_ID = int(os.environ.get("API_ID", "29462738"))
+API_HASH = os.environ.get("API_HASH", "297f51aaab99720a09e80273628c3c24")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8673154872:AAHqVYxzUeJ2iAXdV8AGrDTPG0pDb2_UxAA")
+MONGO_URL = os.environ.get("MONGO_URL", "DATABASE_URI ==== mongodb+srv://larib82632:larib82632@cluster0.rj7ed.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 
 # ডাটাবেস সেটআপ
 db_client = AsyncIOMotorClient(MONGO_URL)
